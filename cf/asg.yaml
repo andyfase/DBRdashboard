@@ -1,0 +1,180 @@
+AWSTemplateFormatVersion: "2010-09-09"
+
+Description: Stack for ASG with timed scale-up / scale-down policy for DBR automatic processing
+
+Parameters:
+  ResourcePrefix:
+    Type: String
+
+  KeypairName:
+    Type: AWS::EC2::KeyPair::KeyName
+
+  DBRBucket:
+    Type: String
+    Description: S3 bucket configured for Detailed Billing Records
+
+  InstanceType:
+    Type: String
+    Description: Instance Type to run (for cost savings limited to M1, M3 or C3 instances - instance store backed, with Moderate networking)
+    Default: m3.medium
+    AllowedValues:
+      - m1.medium
+      - m1.large
+      - m3.medium
+      - m3.large
+      - c3.large
+
+  SpotPrice:
+    Type: Number
+    Default: 0.05
+    Description: The Maximum price for the instance you want to pay (Note you will be charged based on the current price)
+
+Mappings:
+  RegionMap:
+    us-east-1:
+      "ami": "ami-55065e42"
+    us-west-2:
+      "ami": "ami-51c56331"
+
+
+Resources:
+  IamRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: 'PermitAssumeRoleEc2'
+            Action:
+              - sts:AssumeRole
+            Effect: Allow
+            Principal:
+              Service:
+                - ec2.amazonaws.com
+      Path: /
+      Policies:
+        - PolicyName: DBRAccess_read_and_write_parquet
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - "s3:GetObject"
+                Resource:
+                  "Fn::Join":
+                    - ""
+                    -
+                      - "arn:aws:s3:::"
+                      - { Ref: DBRBucket }
+                      - "/*"
+              - Effect: Allow
+                Action:
+                  - "s3:GetObject"
+                  - "s3:PutObject"
+                Resource:
+                  "Fn::Join":
+                    - ""
+                    -
+                      - "arn:aws:s3:::"
+                      - { Ref: DBRBucket }
+                      - "/dbr-parquet"
+
+  IamProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Path: /
+      Roles:
+        - Ref: IamRole
+
+  SecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      VpcId:
+        "Fn::ImportValue":
+          !Sub "${ResourcePrefix}-VpcId"
+      GroupDescription:
+        "Fn::Join":
+          -
+            "-"
+          -
+            - { Ref: ResourcePrefix }
+            - "sg"
+      Tags:
+        - Key: Name
+          Value:
+            "Fn::Join":
+              -
+                "-"
+              -
+                - { Ref: ResourcePrefix }
+                - "sg"
+
+  SecurityGroupSshIngress:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      GroupId: { Ref: SecurityGroup }
+      CidrIp: "0.0.0.0/0"
+      IpProtocol: tcp
+      FromPort: 22
+      ToPort: 22
+
+  LaunchConfig:
+    Type: AWS::AutoScaling::LaunchConfiguration
+    Properties:
+      ImageId:
+        "Fn::FindInMap":
+          - RegionMap
+          - Ref: "AWS::Region"
+          - "ami"
+      KeyName: { Ref: KeypairName }
+      IamInstanceProfile: { Ref: IamProfile }
+      InstanceType: { Ref: InstanceType }
+      SpotPrice: { Ref: SpotPrice }
+      SecurityGroups:
+        - { Ref: SecurityGroup }
+      UserData:
+        "Fn::Base64":
+          "Fn::Join":
+            - "\n"
+            -
+              - "#!/bin/bash"
+              - ""
+              - "chmod 777 /media/ephemeral0"
+              - "yum update -y"
+              - "yum install -y git"
+              - "git clone https://github.com/andyfase/awsDBRanalysis.git"
+              - "cd awsDBRanalysis"
+              - "./run.sh"
+
+  Asg:
+    Type: AWS::AutoScaling::AutoScalingGroup
+    Properties:
+      Tags:
+        - Key: Name
+          Value:
+            "Fn::Join":
+              - "-"
+              -
+                - { Ref: ResourcePrefix }
+                - "asg"
+          PropagateAtLaunch: true
+
+      MinSize: 0
+      MaxSize: 1
+      DesiredCapacity: 0
+      LaunchConfigurationName: { Ref: LaunchConfig }
+      VPCZoneIdentifier:
+        - "Fn::ImportValue":
+            "Fn::Sub": "${ResourcePrefix}-PublicSubnetAZ0"
+        - "Fn::ImportValue":
+            "Fn::Sub": "${ResourcePrefix}-PublicSubnetAZ1"
+Outputs:
+  SgIdExport:
+    Value: { Ref: SecurityGroup }
+    Export:
+      Name:
+        "Fn::Join":
+          - "-"
+          -
+            - { Ref: ResourcePrefix }
+            - "SgId"
