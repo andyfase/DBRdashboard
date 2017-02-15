@@ -29,6 +29,11 @@ Parameters:
     Default: 0.05
     Description: The Maximum price for the instance you want to pay (Note you will be charged based on the current price)
 
+  GitURL:
+    Type: String
+    Default: "https://github.com/andyfase/awsDBRanalysis.git"
+    Description: "URL of the git repo that will be checked out and used when configuring the EC2 instance, use your cloned repo."
+
 Mappings:
   RegionMap:
     us-east-1:
@@ -91,7 +96,7 @@ Resources:
     Properties:
       VpcId:
         "Fn::ImportValue":
-          !Sub "${ResourcePrefix}-VpcId"
+          "Fn::Sub": "${ResourcePrefix}-VpcId"
       GroupDescription:
         "Fn::Join":
           -
@@ -142,9 +147,10 @@ Resources:
               - "chmod 777 /media/ephemeral0"
               - "yum update -y"
               - "yum install -y git"
-              - "git clone https://github.com/andyfase/awsDBRanalysis.git"
+              - "Fn::Sub": "git clone ${GitURL}"
               - "cd awsDBRanalysis"
-              - "./run.sh"
+              - "Fn::Sub": "chmod 755 ./run.sh && ./run.sh ${DBRBucket} ${AWS::AccountId}"
+              - ""
 
   Asg:
     Type: AWS::AutoScaling::AutoScalingGroup
