@@ -209,7 +209,7 @@ Resources:
       AutoScalingGroupName: { Ref: Asg }
       DesiredCapacity: 0
       Recurrence:
-          "Fn::Sub": "50 */1 * * *"
+          "Fn::Sub": "55 */1 * * *"
 
 Outputs:
   SgIdExport:
