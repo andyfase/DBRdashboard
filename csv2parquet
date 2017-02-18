@@ -120,7 +120,7 @@ class Columns:
         self.csv_columns = csv_columns
         self.name_map = name_map
         self.type_map = type_map
-        
+
         self.items = []
         invalid_names = []
         for csv_name in self.csv_columns:
@@ -131,10 +131,10 @@ class Columns:
             self.items.append(Column(csv_name, parquet_name, type_name))
         if len(invalid_names) > 0:
             raise InvalidColumnNames(invalid_names)
-            
+
     def __iter__(self):
         return iter(self.items)
-        
+
 class CsvSource:
     def __init__(self, path: str, name_map: dict = None, type_map: dict = None):
         if name_map is None:
@@ -172,7 +172,7 @@ class TempLocation:
 
 class DrillInstallation:
     '''Create a temporary, custom Drill installation
-    
+
     Even in embedded mode, Drill runs in a stateful fashion, storing
     its state in (by default) /tmp/drill. This poses a few problems
     for running csv2parquet in ways that are (a) robust, and (b)
@@ -262,7 +262,7 @@ class DrillScript:
             raise DrillScriptError(proc.returncode)
 
         # publish resulting output parquet file
-        os.rename(self.drill.location.full_path('parquet_tmp_output'), self.parquet_output)
+        shutil.move(self.drill.location.full_path('parquet_tmp_output'), self.parquet_output)
 
 # helper functions
 def get_args():
@@ -299,7 +299,7 @@ def list2dict(items):
     if len(items) % 2 != 0:
         raise ValueError
     return dict( (items[n], items[n+1])
-                 for n in range(0, len(items)-1, 2) )    
+                 for n in range(0, len(items)-1, 2) )
 
 def is_valid_parquet_column_name(val):
     return '.' not in val
@@ -314,7 +314,7 @@ SELECT
     script += 'FROM dfs.`{}`\n'.format(csv_input)
     script += 'OFFSET 1\n'
     return script
-    
+
 if __name__ == "__main__":
     args = get_args()
     if args.debug:

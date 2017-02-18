@@ -64,20 +64,35 @@ Resources:
             Statement:
               - Effect: Allow
                 Action:
+                  - "s3:ListBucket"
                   - "s3:GetObject"
+                  - "s3:ListObjects"
                 Resource:
-                  "Fn::Join":
+                  - "Fn::Join":
                     - ""
                     -
                       - "arn:aws:s3:::"
                       - { Ref: DBRBucket }
                       - "/*"
+                  - "Fn::Join":
+                    - ""
+                    -
+                      - "arn:aws:s3:::"
+                      - { Ref: DBRBucket }
               - Effect: Allow
                 Action:
                   - "s3:GetObject"
+                  - "s3:ListObjects"
                   - "s3:PutObject"
                 Resource:
-                  "Fn::Join":
+                  - "Fn::Join":
+                    - ""
+                    -
+                      - "arn:aws:s3:::"
+                      - { Ref: DBRBucket }
+                      - "/dbr-parquet"
+                      - "/*"
+                  - "Fn::Join":
                     - ""
                     -
                       - "arn:aws:s3:::"
