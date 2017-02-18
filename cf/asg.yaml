@@ -29,6 +29,11 @@ Parameters:
     Default: 0.05
     Description: The Maximum price for the instance you want to pay (Note you will be charged based on the current price)
 
+  Schedule:
+    Type: Number
+    Default: 4
+    Description: Time gap (in hours) between DBR automatic processing (the lower, the more frequent and costly)
+
   GitURL:
     Type: String
     Default: "https://github.com/andyfase/awsDBRanalysis.git"
@@ -189,6 +194,23 @@ Resources:
             "Fn::Sub": "${ResourcePrefix}-PublicSubnetAZ0"
         - "Fn::ImportValue":
             "Fn::Sub": "${ResourcePrefix}-PublicSubnetAZ1"
+
+  AsgScheduleUp:
+    Type: AWS::AutoScaling::ScheduledAction
+    Properties:
+      AutoScalingGroupName: { Ref: Asg }
+      DesiredCapacity: 1
+      Recurrence:
+          "Fn::Sub": "1 */${Schedule} * * *"
+
+  AsgScheduleDown:
+    Type: AWS::AutoScaling::ScheduledAction
+    Properties:
+      AutoScalingGroupName: { Ref: Asg }
+      DesiredCapacity: 0
+      Recurrence:
+          "Fn::Sub": "50 */1 * * *"
+
 Outputs:
   SgIdExport:
     Value: { Ref: SecurityGroup }
