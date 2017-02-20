@@ -46,7 +46,7 @@ run unzip -qq /media/ephemeral0/$DBRFILEFS -d /media/ephemeral0/
 
 
 ## Check if DBR file contains Blended / Unblended Rates
-DBR_BLENDED=`head -1 $DBRFILEFS_CSV | grep UnBlended | wc -l | egrep -o "\d+"`
+DBR_BLENDED=`head -1 /media/ephemeral0/$DBRFILEFS_CSV | grep UnBlended | wc -l | egrep -o "\d+"`
 
 run hostname localhost
 ## Column map requried as Athena only works with lowercase columns.
