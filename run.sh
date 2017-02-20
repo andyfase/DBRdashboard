@@ -49,4 +49,4 @@ run hostname localhost
 run ./csv2parquet /media/ephemeral0/$DBRFILEFS_CSV /media/ephemeral0/$DBRFILEFS_PARQUET
 
 ## Upload Parquet DBR back to bucket
-run aws s3 sync /media/ephemeral0/$DBRFILEFS_PARQUET s3://${1}/dbr-parquet/${2}-$(date +%Y-%m) --quiet
+run aws s3 sync /media/ephemeral0/$DBRFILEFS_PARQUET s3://${1}/dbr-parquet/${2}-$(date +%Y%m) --quiet
