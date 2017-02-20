@@ -44,9 +44,22 @@ DBRFILEFS_PARQUET="${2}-aws-billing-detailed-line-items-with-resources-and-tags-
 run aws s3 cp $DBRFILES3 /media/ephemeral0/ --quiet
 run unzip -qq /media/ephemeral0/$DBRFILEFS -d /media/ephemeral0/
 
-## Convert CSV to Parquet
+
+## Check if DBR file contains Blended / Unblended Rates
+DBR_BLENDED=`head -1 $DBRFILEFS_CSV | grep UnBlended | wc -l | egrep -o "\d+"`
+
 run hostname localhost
-run ./csv2parquet /media/ephemeral0/$DBRFILEFS_CSV /media/ephemeral0/$DBRFILEFS_PARQUET
+## Column map requried as Athena only works with lowercase columns.
+## Also DBR columns are different depending on Linked Account or without hence alter column map based on that
+COLUMN_MAP='"InvoiceID" "invoiceid" "PayerAccountId" "payeraccountid" "LinkedAccountId" "linkedaccountid" "RecordType" "recordtype" "ProductName" "productname" "RateId" "rateid" "SubscriptionId" "subscriptionid" "PricingPlanId" "pricingplanid" "UsageType" "usagetype" "Operation" "operation" "AvailabilityZone" "availabilityzone" "ReservedInstance" "reservedinstance" "ItemDescription" "itemdescription" "UsageStartDate" "usagestartdate" "UsageEndDate" "usageenddate" "UsageQuantity" "usagequantity" '
+if [ $DBR_BLENDED -eq 1 ]; then
+    COLUMN_MAP+='"BlendedRate" "blendedrate" "BlendedCost" "blendedcost" "UnBlendedRate" "unblendedrate" "UnBlendedCost" "unblendedcost"'
+else
+    COLUMN_MAP+='"Rate" "rate" "Cost" "cost"'
+fi
+
+## Convert CSV to Parquet
+run ./csv2parquet /media/ephemeral0/$DBRFILEFS_CSV /media/ephemeral0/$DBRFILEFS_PARQUET --column-map $COLUMN_MAP
 
 ## Upload Parquet DBR back to bucket
 run aws s3 sync /media/ephemeral0/$DBRFILEFS_PARQUET s3://${1}/dbr-parquet/${2}-$(date +%Y%m) --quiet
