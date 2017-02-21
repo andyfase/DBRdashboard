@@ -48,6 +48,61 @@ Mappings:
 
 
 Resources:
+  autodbrAthena:
+    Type: AWS::IAM::User
+    Properties:
+      UserName: "auto-dbr-athena"
+      Policies:
+        - PolicyName: "athena-dbr-access"
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - athena:CancelQueryExecution
+                  - athena:GetCatalogs
+                  - athena:GetExecutionEngine
+                  - athena:GetExecutionEngines
+                  - athena:GetNamespace
+                  - athena:GetNamespaces
+                  - athena:GetQueryExecution
+                  - athena:GetQueryExecutions
+                  - athena:GetQueryResults
+                  - athena:GetTable
+                  - athena:GetTables
+                  - athena:RunQuery
+                Resource:
+                  - "*"
+              - Effect: Allow
+                Action:
+                  - s3:GetBucketLocation
+                  - s3:GetObject
+                  - s3:ListBucket
+                  - s3:ListBucketMultipartUploads
+                  - s3:ListMultipartUploadParts
+                  - s3:AbortMultipartUpload
+                  - s3:CreateBucket
+                  - s3:PutObject
+                Resource:
+                  - "arn:aws:s3:::aws-athena-query-results-*"
+              - Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:ListBucket
+                  - s3:ListObjects
+                Resource:
+                  - "Fn::Join":
+                    - ""
+                    -
+                      - "arn:aws:s3:::"
+                      - { Ref: DBRBucket }
+                      - "*"
+  autodbrAthenaAccessKey:
+    Type: AWS::IAM::AccessKey
+    Properties:
+      UserName:
+        { Ref: autodbrAthena }
+
   IamRole:
     Type: AWS::IAM::Role
     Properties:
@@ -69,9 +124,9 @@ Resources:
             Statement:
               - Effect: Allow
                 Action:
-                  - "s3:ListBucket"
-                  - "s3:GetObject"
-                  - "s3:ListObjects"
+                  - s3:ListBucket
+                  - s3:GetObject
+                  - s3:ListObjects
                 Resource:
                   - "Fn::Join":
                     - ""
@@ -86,9 +141,9 @@ Resources:
                       - { Ref: DBRBucket }
               - Effect: Allow
                 Action:
-                  - "s3:GetObject"
-                  - "s3:ListObjects"
-                  - "s3:PutObject"
+                  - s3:GetObject
+                  - s3:ListObjects
+                  - s3:PutObject
                 Resource:
                   - "Fn::Join":
                     - ""
@@ -169,7 +224,7 @@ Resources:
               - "yum install -y git"
               - "Fn::Sub": "git clone ${GitURL}"
               - "cd awsDBRanalysis"
-              - "Fn::Sub": "chmod 755 ./run.sh && ./run.sh ${DBRBucket} ${AWS::AccountId}"
+              - "Fn::Sub": "chmod 755 ./run.sh && ./run.sh ${DBRBucket} ${AWS::AccountId} ${AWS::Region} ${autodbrAthenaAccessKey} ${autodbrAthenaAccessKey.SecretAccessKey}"
               - ""
 
   Asg:
