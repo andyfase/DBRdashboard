@@ -4,6 +4,9 @@
 #
 # $1 - S3 bucket to use
 # $2 - AWS Account ID
+# $3 - region
+# $4 - user-key
+# $5 - user-secret
 
 #
 # Helper function that runs whatever command is passed to it and exits if command does not return zero status
@@ -59,3 +62,8 @@ fi
 
 ## Upload Parquet DBR back to bucket
 run aws s3 sync /media/ephemeral0/$DBRFILEFS_PARQUET s3://${1}/dbr-parquet/${2}-$(date +%Y%m) --quiet
+
+## run go program to Query Athena and send metrics to cloudwatch
+./bin/analyzeDBR -config ./analyzeDBR.config -key $4 -secret $5 -region $3 -account $2 -bucket $1 -date $(date +%Y%m) -blended $DBR_BLENDED
+
+## done
