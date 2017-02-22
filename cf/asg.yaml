@@ -118,7 +118,7 @@ Resources:
                 - ec2.amazonaws.com
       Path: /
       Policies:
-        - PolicyName: DBRAccess_read_and_write_parquet
+        - PolicyName: autoDBR_S3_and_CloudWatch
           PolicyDocument:
             Version: "2012-10-17"
             Statement:
@@ -158,6 +158,11 @@ Resources:
                       - "arn:aws:s3:::"
                       - { Ref: DBRBucket }
                       - "/dbr-parquet"
+              - Effect: Allow
+                Action:
+                  - cloudwatch:PutMetricData
+                Resource:
+                  - "*"
 
   IamProfile:
     Type: AWS::IAM::InstanceProfile

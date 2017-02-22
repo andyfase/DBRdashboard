@@ -64,6 +64,6 @@ fi
 run aws s3 sync /media/ephemeral0/$DBRFILEFS_PARQUET s3://${1}/dbr-parquet/${2}-$(date +%Y%m) --quiet
 
 ## run go program to Query Athena and send metrics to cloudwatch
-./bin/analyzeDBR -config ./analyzeDBR.config -key $4 -secret $5 -region $3 -account $2 -bucket $1 -date $(date +%Y%m) -blended $DBR_BLENDED
+./bin/analyzeDBR -config ./analyzeDBR.config -key $4 -secret $5 -region $3 -account $2 -bucket $1 -date $(date +%Y%m) -blended=$DBR_BLENDED
 
 ## done
