@@ -250,12 +250,12 @@ func main() {
 	// Depending on the Type of DBR (blended or not blended - the table we create is slightly different)
 	if blendedDBR {
 		costColumn = "blendedcost"
-		if _, err := sendQuery(key, secret, region, account, substituteParams(conf.Athena.TableSQL, map[string]string{"**BUCKET**": bucket, "**DATE**": date, "**ACCOUNT**": account})); err != nil {
+		if _, err := sendQuery(key, secret, region, account, substituteParams(conf.Athena.TableBlendedSQL, map[string]string{"**BUCKET**": bucket, "**DATE**": date, "**ACCOUNT**": account})); err != nil {
 			log.Fatal(err)
 		}
 	} else {
 		costColumn = "cost"
-		if _, err := sendQuery(key, secret, region, account, substituteParams(conf.Athena.TableBlendedSQL, map[string]string{"**BUCKET**": bucket, "**DATE**": date, "**ACCOUNT**": account})); err != nil {
+		if _, err := sendQuery(key, secret, region, account, substituteParams(conf.Athena.TableSQL, map[string]string{"**BUCKET**": bucket, "**DATE**": date, "**ACCOUNT**": account})); err != nil {
 			log.Fatal(err)
 		}
 	}
