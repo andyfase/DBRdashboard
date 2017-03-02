@@ -376,8 +376,6 @@ func riUtilizationHour(svc *cloudwatch.CloudWatch, date string, used map[string]
     }
   }
 
-  log.Fatal("done")
-
   return nil
 }
 
