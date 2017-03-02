@@ -33,6 +33,7 @@ type RI struct {
   CwName  string
   CwNameTotal string
   CwDimension string
+  CwDimensionTotal string
   CwType string
   Sql string
   Ignore map[string]int
@@ -76,7 +77,6 @@ type AthenaResponse struct {
 
 var defaultConfigPath = "./analyzeDBR.config"
 
-
 func getParams(configFile *string, account *string, region *string, key *string, secret *string, date *string, bucket *string, blended *bool) error {
 
 	// Define input command line config parameter and parse it
@@ -119,7 +119,6 @@ func getParams(configFile *string, account *string, region *string, key *string,
 	return nil
 }
 
-
 func getConfig(conf *Config, configFile string) error {
 
     // check for existance of file
@@ -150,7 +149,7 @@ func substituteParams(sql string, params map[string]string) string {
 	return sql
 }
 
-func sendQuery (key string, secret string, region string, account string, sql string) (AthenaResponse, error) {
+func sendQuery(key string, secret string, region string, account string, sql string) (AthenaResponse, error) {
 
 	// construct json
 	req := AthenaRequest {
@@ -190,14 +189,13 @@ func sendQuery (key string, secret string, region string, account string, sql st
 	return results, nil
 }
 
-func sendMultiDimensionMetric (svc *cloudwatch.CloudWatch, data AthenaResponse, cwNameSpace string, cwName string, cwType string, cwDimensionName string) error {
+func sendMetric(svc *cloudwatch.CloudWatch, data AthenaResponse, cwNameSpace string, cwName string, cwType string, cwDimensionName string) error {
 
 	input := cloudwatch.PutMetricDataInput{}
 	input.Namespace = aws.String(cwNameSpace)
-
 	i := 0
 	for row := range data.Rows {
-		// send Metric Data is got to 20 records, and clear MetricData Array
+		// send Metric Data as we have reached 20 records, and clear MetricData Array
 		if i >= 20 {
 			_, err := svc.PutMetricData(&input)
 			if err != nil {
@@ -215,11 +213,27 @@ func sendMultiDimensionMetric (svc *cloudwatch.CloudWatch, data AthenaResponse, 
             Unit:       aws.String(cwType),
 						Value:			aws.Float64(v),
     }
-		dimension := cloudwatch.Dimension{
-									Name: aws.String(cwDimensionName),
-									Value: aws.String(data.Rows[row]["dimension"]) }
 
-		metric.Dimensions = append([]*cloudwatch.Dimension{}, &dimension)
+    // Dimension can be a single or comma seperated list of values, or key/values
+    // presence of "=" sign in value designates key=value. Otherwise input cwDimensionName is used as key
+    d := strings.Split(data.Rows[row]["dimension"], ",")
+    for i := range d  {
+      var dname, dvalue string
+      if strings.Contains(d[i], "=") {
+        dTuple := strings.Split(d[i], "=")
+        dname = dTuple[0]
+        dvalue = dTuple[1]
+      } else {
+        dname = cwDimensionName
+        dvalue = d[i]
+      }
+      cwD := cloudwatch.Dimension{
+            Name: aws.String(dname),
+            Value: aws.String(dvalue),
+          }
+      metric.Dimensions = append(metric.Dimensions, &cwD)
+    }
+
 		input.MetricData = append(input.MetricData, &metric)
 		i++
 	}
@@ -232,19 +246,19 @@ func sendMultiDimensionMetric (svc *cloudwatch.CloudWatch, data AthenaResponse, 
 	return nil
 }
 
-func riUtilizationHour (svc *cloudwatch.CloudWatch, date string, used map[string]map[string]int, azRI map[string]map[string]int, regionRI map[string]int, conf Config, region string) error {
+func riUtilizationHour(svc *cloudwatch.CloudWatch, date string, used map[string]map[string]map[string]int, azRI map[string]map[string]map[string]int, regionRI map[string]map[string]int, conf Config, region string) error {
 
   // Perform Deep Copy of both RI maps.
   // We need a copy of the maps as we decrement the RI's available by the hourly usage and a map is a pointer
   // hence decrementing the original maps will affect the pass-by-reference data
   cpy := deepcopy.Copy(azRI)
-  t_azRI, ok := cpy.(map[string]map[string]int)
+  t_azRI, ok := cpy.(map[string]map[string]map[string]int)
   if ! ok {
     return errors.New("could not copy AZ RI map")
   }
 
   cpy = deepcopy.Copy(regionRI)
-  t_regionRI, ok := cpy.(map[string]int)
+  t_regionRI, ok := cpy.(map[string]map[string]int)
   if ! ok {
     return errors.New("could not copy Regional RI map")
   }
@@ -253,31 +267,39 @@ func riUtilizationHour (svc *cloudwatch.CloudWatch, date string, used map[string
   // AZ specific RI's are first checked and then regional RI's
   for az := range used {
     for instance := range used[az] {
-      // check if azRI for this region even exists
+      // check if azRI for this region even exist
       _, ok := t_azRI[az][instance]
       if ok {
-        // More RI's than we used
-        if t_azRI[az][instance] >= used[az][instance] {
-          t_azRI[az][instance] -= used[az][instance]
-          used[az][instance] = 0
-        } else {
-          // Less RI's than we used
-          used[az][instance] -= t_azRI[az][instance]
-          t_azRI[az][instance] = 0
+        for platform := range used[az][instance] {
+          // check if azRI for this region and platform even exists
+          _, ok2 := t_azRI[az][instance][platform]
+            if ok2 {
+              // More RI's than we used
+              if t_azRI[az][instance][platform] >= used[az][instance][platform] {
+                t_azRI[az][instance][platform] -= used[az][instance][platform]
+                used[az][instance][platform] = 0
+              } else {
+                // Less RI's than we used
+                used[az][instance][platform] -= t_azRI[az][instance][platform]
+                t_azRI[az][instance][platform] = 0
+              }
+            }
+          }
         }
-      }
 
       // check if regionRI even exists and that instance used is in the right region
       _, ok = t_regionRI[instance]
       if ok && az[:len(az)-1] == region {
-        // if we still have more used instances check against regional RI's
-        if used[az][instance] > 0 && t_regionRI[instance] > 0 {
-          if t_regionRI[instance] >= used[az][instance] {
-            t_regionRI[instance] -= used[az][instance]
-            used[az][instance] = 0
-          } else {
-            used[az][instance] -= t_regionRI[instance]
-            t_regionRI[instance] = 0
+        for platform := range used[az][instance] {
+          // if we still have more used instances check against regional RI's
+          if used[az][instance][platform] > 0 && t_regionRI[instance][platform] > 0 {
+            if t_regionRI[instance][platform] >= used[az][instance][platform] {
+              t_regionRI[instance][platform] -= used[az][instance][platform]
+              used[az][instance][platform] = 0
+            } else {
+              used[az][instance][platform] -= t_regionRI[instance][platform]
+              t_regionRI[instance][platform] = 0
+            }
           }
         }
       }
@@ -287,25 +309,39 @@ func riUtilizationHour (svc *cloudwatch.CloudWatch, date string, used map[string
   // Now loop through the temp RI data to check if any RI's are still available
   // If they are and the % of un-use is above the configured threshold then colate for sending to cloudwatch
   // We sum up the total of regional and AZ specific RI's so that we get one instance based metric regardless of region or AZ RI
-  i_unused := make(map[string]int)
-  i_total  := make(map[string]int)
+  i_unused := make(map[string]map[string]int)
+  i_total  := make(map[string]map[string]int)
   var unused int
   var total int
 
   for az := range t_azRI {
     for instance := range t_azRI[az] {
-      i_total[instance] = azRI[az][instance]
-      i_unused[instance] = t_azRI[az][instance]
-
-      total += azRI[az][instance]
-      unused += t_azRI[az][instance]
+      _, ok := i_unused[instance]
+      if ! ok {
+        i_unused[instance] = make(map[string]int)
+        i_total[instance] = make(map[string]int)
+      }
+      for platform := range t_azRI[az][instance] {
+        i_total[instance][platform] = azRI[az][instance][platform]
+        i_unused[instance][platform] = t_azRI[az][instance][platform]
+        total += azRI[az][instance][platform]
+        unused += t_azRI[az][instance][platform]
+      }
     }
   }
+
   for instance := range t_regionRI {
-    i_total[instance] += regionRI[instance]
-    i_unused[instance] += t_regionRI[instance]
-    total += regionRI[instance]
-    unused += t_regionRI[instance]
+    for platform := range t_regionRI[instance] {
+      _, ok := i_unused[instance]
+      if ! ok {
+        i_unused[instance] = make(map[string]int)
+        i_total[instance] = make(map[string]int)
+      }
+      i_total[instance][platform] += regionRI[instance][platform]
+      i_unused[instance][platform] += t_regionRI[instance][platform]
+      total += regionRI[instance][platform]
+      unused += t_regionRI[instance][platform]
+    }
   }
 
   // loop over per-instance utilization and build metrics to send
@@ -313,17 +349,19 @@ func riUtilizationHour (svc *cloudwatch.CloudWatch, date string, used map[string
   for instance := range i_unused {
     _, ok := conf.RI.Ignore[instance]
     if !ok { // instance not on ignore list
-      percent := (float64(i_unused[instance]) / float64(i_total[instance])) * 100
-      if int(percent) > conf.RI.PercentThreshold && i_total[instance] > conf.RI.TotalThreshold {
-        fmt.Println("here")
-        metrics.Rows = append(metrics.Rows, map[string]string{"dimension": instance, "date": date, "value": strconv.FormatInt(int64(percent), 10)})
+      for platform := range i_unused[instance] {
+        percent := (float64(i_unused[instance][platform]) / float64(i_total[instance][platform])) * 100
+        if int(percent) > conf.RI.PercentThreshold && i_total[instance][platform] > conf.RI.TotalThreshold {
+          metrics.Rows = append(metrics.Rows, map[string]string{"dimension": "instance=" + instance + ",platform=" + platform, "date": date, "value": strconv.FormatInt(int64(percent), 10)})
+        }
       }
     }
   }
 
+
   // send per instance type under-utilization
   if len(metrics.Rows) > 0 {
-    if err := sendMultiDimensionMetric(svc, metrics, conf.General.Namespace, conf.RI.CwName, conf.RI.CwType, conf.RI.CwDimension); err != nil {
+    if err := sendMetric(svc, metrics, conf.General.Namespace, conf.RI.CwName, conf.RI.CwType, conf.RI.CwDimension); err != nil {
       log.Fatal(err)
     }
   }
@@ -331,19 +369,19 @@ func riUtilizationHour (svc *cloudwatch.CloudWatch, date string, used map[string
   // If confured send overall total utilization
   if conf.RI.TotalUtilization {
     percent := 100 - ((float64(unused) / float64(total)) * 100)
-
     total := AthenaResponse{}
-    total.Rows = append(metrics.Rows, map[string]string{"dimension": "overall", "date": date, "value": strconv.FormatInt(int64(percent), 10)})
-
-    if err := sendMultiDimensionMetric(svc, total, conf.General.Namespace, conf.RI.CwNameTotal, conf.RI.CwType, conf.RI.CwDimension); err != nil {
+    total.Rows = append(total.Rows, map[string]string{"dimension": "hourly", "date": date, "value": strconv.FormatInt(int64(percent), 10)})
+    if err := sendMetric(svc, total, conf.General.Namespace, conf.RI.CwNameTotal, conf.RI.CwType, conf.RI.CwDimensionTotal); err != nil {
       log.Fatal(err)
     }
   }
 
+  log.Fatal("done")
+
   return nil
 }
 
-func riUtilization (sess *session.Session, conf Config, key string, secret string, region string, account string, date string) error {
+func riUtilization(sess *session.Session, conf Config, key string, secret string, region string, account string, date string) error {
 
   sess2, err := session.NewSessionWithOptions(session.Options{
   	 Config: aws.Config{Region: aws.String("us-east-1")},
@@ -370,22 +408,33 @@ func riUtilization (sess *session.Session, conf Config, key string, secret strin
     return err
   }
 
-  az_ri := make(map[string]map[string]int)
-  region_ri := make(map[string]int)
+  az_ri := make(map[string]map[string]map[string]int)
+  region_ri := make(map[string]map[string]int)
 
   // map in number of RI's available both AZ specific and regional
   for i := range resp.ReservedInstances {
     ri := resp.ReservedInstances[i]
 
+    // Trim VPC identifier of Platform type as its not relevant for RI Utilization calculations
+    platform := strings.TrimSuffix(*ri.ProductDescription, " (Amazon VPC)")
+
     if *ri.Scope == "Availability Zone" {
       _, ok := az_ri[*ri.AvailabilityZone]
       if ! ok {
-        az_ri[*ri.AvailabilityZone] = make(map[string]int)
+        az_ri[*ri.AvailabilityZone] = make(map[string]map[string]int)
       }
-      az_ri[*ri.AvailabilityZone][*ri.InstanceType] += int(*ri.InstanceCount)
+      _, ok = az_ri[*ri.AvailabilityZone][*ri.InstanceType]
+      if ! ok {
+        az_ri[*ri.AvailabilityZone][*ri.InstanceType] = make(map[string]int)
+      }
+      az_ri[*ri.AvailabilityZone][*ri.InstanceType][platform] += int(*ri.InstanceCount)
     } else if  *ri.Scope == "Region" {
-      region_ri[*ri.InstanceType] += int(*ri.InstanceCount)
+      _, ok := region_ri[*ri.InstanceType]
+      if ! ok {
+        region_ri[*ri.InstanceType] = make(map[string]int)
       }
+      region_ri[*ri.InstanceType][platform] += int(*ri.InstanceCount)
+    }
   }
 
   // Fetch RI hours used
@@ -394,21 +443,25 @@ func riUtilization (sess *session.Session, conf Config, key string, secret strin
     log.Fatal(err)
   }
 
-  // loop through response data and generate map of hourly usage, per AZ.
-  hours := make(map[string]map[string]map[string]int)
+  // loop through response data and generate map of hourly usage, per AZ, per instance, per platform
+  hours := make(map[string]map[string]map[string]map[string]int)
   for row := range data.Rows {
     _, ok := hours[data.Rows[row]["date"]]
     if ! ok {
-      hours[data.Rows[row]["date"]] = make(map[string]map[string]int)
+      hours[data.Rows[row]["date"]] = make(map[string]map[string]map[string]int)
     }
     _, ok = hours[data.Rows[row]["date"]][data.Rows[row]["az"]]
     if ! ok {
-      hours[data.Rows[row]["date"]][data.Rows[row]["az"]] = make(map[string]int)
+      hours[data.Rows[row]["date"]][data.Rows[row]["az"]] = make(map[string]map[string]int)
+    }
+    _, ok = hours[data.Rows[row]["date"]][data.Rows[row]["az"]][data.Rows[row]["instance"]]
+    if ! ok {
+      hours[data.Rows[row]["date"]][data.Rows[row]["az"]][data.Rows[row]["instance"]] = make(map[string]int)
     }
 
     v, _ := strconv.ParseInt(data.Rows[row]["hours"], 10, 64)
-    hours[data.Rows[row]["date"]][data.Rows[row]["az"]][data.Rows[row]["instance"]] += int(v)
-}
+    hours[data.Rows[row]["date"]][data.Rows[row]["az"]][data.Rows[row]["instance"]][data.Rows[row]["platform"]] += int(v)
+  }
 
   // Create new cloudwatch client.
   svcCloudwatch := cloudwatch.New(sess)
@@ -422,7 +475,6 @@ func riUtilization (sess *session.Session, conf Config, key string, secret strin
   }
   return nil
 }
-
 
 func main() {
 
@@ -472,7 +524,6 @@ func main() {
     }
   }
 
-  // testing
   log.Fatal("done")
 
 	// iterate through metrics - perform query then send data to cloudwatch
@@ -485,10 +536,9 @@ func main() {
 			log.Fatal(err)
 		}
 		if conf.Metrics[metric].Type == "dimension-per-row" {
-			if err := sendMultiDimensionMetric(svc, results, conf.General.Namespace, conf.Metrics[metric].CwName, conf.Metrics[metric].CwType, conf.Metrics[metric].CwDimension); err != nil {
+			if err := sendMetric(svc, results, conf.General.Namespace, conf.Metrics[metric].CwName, conf.Metrics[metric].CwType, conf.Metrics[metric].CwDimension); err != nil {
 				log.Fatal(err)
 			}
 		}
 	}
-
 }
