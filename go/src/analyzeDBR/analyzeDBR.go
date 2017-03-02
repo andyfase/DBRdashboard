@@ -381,13 +381,7 @@ func riUtilizationHour(svc *cloudwatch.CloudWatch, date string, used map[string]
 
 func riUtilization(sess *session.Session, conf Config, key string, secret string, region string, account string, date string) error {
 
-  sess2, err := session.NewSessionWithOptions(session.Options{
-  	 Config: aws.Config{Region: aws.String("us-east-1")},
-  	 SharedConfigState: session.SharedConfigEnable,
-      Profile: "hootsuite",
-  })
-
-  svc := ec2.New(sess2)
+  svc := ec2.New(sess)
 
   params := &ec2.DescribeReservedInstancesInput{
     DryRun: aws.Bool(false),
