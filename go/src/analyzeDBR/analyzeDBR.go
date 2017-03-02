@@ -522,8 +522,6 @@ func main() {
     }
   }
 
-  log.Fatal("done")
-
 	// iterate through metrics - perform query then send data to cloudwatch
 	for metric := range conf.Metrics {
 		if ! conf.Metrics[metric].Enabled {
