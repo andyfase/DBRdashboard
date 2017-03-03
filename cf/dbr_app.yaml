@@ -161,9 +161,9 @@ Resources:
               - Effect: Allow
                 Action:
                   - cloudwatch:PutMetricData
+                  - ec2:DescribeReservedInstances
                 Resource:
                   - "*"
-
   IamProfile:
     Type: AWS::IAM::InstanceProfile
     Properties:
