@@ -1,26 +1,25 @@
 # DBRdashboard
 
 
-DBRdashboard is an automated AWS detailed billing record analyzer. You can use it to produce dashboards on your AWS spend which are updated as frequently as AWS updates the DBR files themselves (multiple times per day).
-
+DBRdashboard is an automated AWS detailed billing record analyzer. You can use it to produce dashboards on your AWS spend and reserved instance utilization. Graphs are updated as frequently as AWS updates the DBR files themselves (multiple times per day).
 
 ![DBRdashboard Screenshot](https://raw.githubusercontent.com/andyfase/awsDBRanalysis/master/dbr_dashboard.png)
 
 DBRdashboard queries the detailed billing record using AWS Athena. The queries and metrics that it produces are completly customizable to your own needs and requirements.
 
-Currently the system relies on Cloudwatch to produce the dashboards (dashboard setup is a manual process however). With small modifications any metrics / dashboard system could be utilized.
+Currently the system relies on Cloudwatch to produce the dashboards (dashboard setup is a manual setup step). With small code modifications any metrics / dashboard system could be utilized.
 
-In addition the system also maintains a set of AWS athena tables for you to query your detailed billing record as you wish. A table per month is created and kept upto date as new billing data is added to the underlying DBR CSV file.
+In addition, the system also maintains a set of AWS athena tables for you - to query your detailed billing record as you wish. A table per month is created and kept upto date as new billing data is added to the underlying DBR CSV file.
 
 ## How does this work?
 
 AWS publishes [detail billing reports](http://docs.aws.amazon.com/awsaccountbilling/latest/aboutv2/billing-reports.html#other-reports) periodically during the day. These reports contain very detailed line-by-line billing details for every AWS charge.
 
-DBRdashboard periodically spins up a EC2 instance that checks & converts these CSV based reports into parquet format files (for performance purposes) and re-uploads these converted files to S3. It then utilizes AWS Athena and standard SQL to create database tables and query specific billing metrics within them. The results of the queries are then  reported to AWS Cloudwatch as custom metrics.
+DBRdashboard periodically spins up a EC2 instance that checks and converts these CSV based reports into [parquet format](https://parquet.apache.org/) files (for performance purposes) and re-uploads these converted files to S3. It then utilizes AWS Athena and standard SQL to create database tables and query specific billing metrics within them. The results of the queries are then  reported to AWS Cloudwatch as custom metrics.
 
 Once the metrics are in Cloudwatch, it is then very easy to produce graphs and create a billing dashboard customized to your exact requirements.
 
-In addition to querying the detailed billing report. DBRdashboard also queries any [reserved instances](https://aws.amazon.com/ec2/pricing/reserved-instances/) on the account and then corolates them against actual usage to generate percentage utilization (and under-utilization) metrics both totals and per instance type.
+In addition to querying the detailed billing report. DBRdashboard also queries any [reserved instances](https://aws.amazon.com/ec2/pricing/reserved-instances/) on the account and then corolates them against actual usage to generate utilization metrics. Overall utilization and per instance type under-utilization metrics are available. 
 
 ## Setup
 
@@ -28,7 +27,7 @@ Setup of DBR dashboard should take ~15 minutes.
 
 ### Step 1
 
-If you have not already, turn on detailed billing records in your AWS account, configure and specify a DBR S3 bucket as per the instructions here.
+If you have not already, turn on detailed billing records in your AWS account, configure and specify a DBR S3 bucket as per the instructions [here](http://docs.aws.amazon.com/awsaccountbilling/latest/aboutv2/billing-reports.html#turnonreports) (Look under section _"To turn on detailed billing reports"_).
 
 ### Step 2
 
