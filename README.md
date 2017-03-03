@@ -149,7 +149,7 @@ Column Name | Description
 
 For example if a query returns a row with 
 
-`date` | `dimension` | `value
+`date` | `dimension` | `value`
 ------ | ----------- | ------
 2017-02-01 17 | m3.xlarge | 50
 
