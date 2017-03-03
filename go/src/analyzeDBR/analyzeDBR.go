@@ -1,5 +1,12 @@
 package main
 
+/*
+Imports of interest:
+  "github.com/BurntSushi/toml" - TOML parser
+  "flag" inbuilt package for commmand line parameter parsing
+  "github.com/mohae/deepcopy" package to copy any arbitary struct / map etc
+  "Numerous AWS packages" offical AWS SDK's
+*/
 import (
   "log"
   "github.com/BurntSushi/toml"
@@ -20,7 +27,9 @@ import (
   "github.com/aws/aws-sdk-go/service/ec2"
   "github.com/mohae/deepcopy"
 )
-
+/*
+Structs Below are used to contain configuration parsed in
+*/
 type General struct {
   Namespace string
 }
@@ -61,7 +70,14 @@ type Config struct {
   Athena Athena
   Metrics []Metric
 }
+/*
+End of configuraton structs
+*/
 
+/*
+Structs for Athena requests / responses. Requests go through a proxy on the same server
+Proxy accepts and gives back JSON.
+*/
 type AthenaRequest struct {
 	AthenaUrl string `json:"athenaUrl"`
 	S3StagingDir string `json:"s3StagingDir"`
@@ -77,6 +93,9 @@ type AthenaResponse struct {
 
 var defaultConfigPath = "./analyzeDBR.config"
 
+/*
+Function reads in and validates command line parameters
+*/
 func getParams(configFile *string, account *string, region *string, key *string, secret *string, date *string, bucket *string, blended *bool) error {
 
 	// Define input command line config parameter and parse it
@@ -119,6 +138,10 @@ func getParams(configFile *string, account *string, region *string, key *string,
 	return nil
 }
 
+/*
+Function reads in configuration file provided in configFile input
+Config file is stored in TOML format
+*/
 func getConfig(conf *Config, configFile string) error {
 
     // check for existance of file
@@ -140,6 +163,10 @@ func getConfig(conf *Config, configFile string) error {
     return nil
 }
 
+/*
+Function substitutes parameters into SQL command.
+Input map contains key (thing to look for in input sql) and if found replaces with given value)
+*/
 func substituteParams(sql string, params map[string]string) string {
 
 	for sub, value := range params {
@@ -149,6 +176,10 @@ func substituteParams(sql string, params map[string]string) string {
 	return sql
 }
 
+/*
+Function takes SQL to send to Athena converts into JSON to send to Athena HTTP proxy and then sends it.
+Then recieves responses in JSON which is converted back into a struct and returned
+*/
 func sendQuery(key string, secret string, region string, account string, sql string) (AthenaResponse, error) {
 
 	// construct json
@@ -189,6 +220,9 @@ func sendQuery(key string, secret string, region string, account string, sql str
 	return results, nil
 }
 
+/*
+Function takes metric data (from Athena etal) and sends through to cloudwatch.
+*/
 func sendMetric(svc *cloudwatch.CloudWatch, data AthenaResponse, cwNameSpace string, cwName string, cwType string, cwDimensionName string) error {
 
 	input := cloudwatch.PutMetricDataInput{}
@@ -246,6 +280,9 @@ func sendMetric(svc *cloudwatch.CloudWatch, data AthenaResponse, cwNameSpace str
 	return nil
 }
 
+/*
+Function processes a single hours worth of RI usage and compares against available RIs to produce % utiization / under-utilization
+*/
 func riUtilizationHour(svc *cloudwatch.CloudWatch, date string, used map[string]map[string]map[string]int, azRI map[string]map[string]map[string]int, regionRI map[string]map[string]int, conf Config, region string) error {
 
   // Perform Deep Copy of both RI maps.
@@ -379,6 +416,10 @@ func riUtilizationHour(svc *cloudwatch.CloudWatch, date string, used map[string]
   return nil
 }
 
+/*
+Main RI function. Gest RI and usage data (from Athena).
+Then loops through every hour and calls riUtilizationHour to process each hours worth of data
+*/
 func riUtilization(sess *session.Session, conf Config, key string, secret string, region string, account string, date string) error {
 
   svc := ec2.New(sess)
