@@ -228,7 +228,7 @@ Resources:
               - "yum update -y"
               - "yum install -y git"
               - "Fn::Sub": "git clone ${GitURL}"
-              - "cd awsDBRanalysis"
+              - "cd DBRdashboard"
               - "Fn::Sub": "chmod 755 ./run.sh && ./run.sh ${DBRBucket} ${AWS::AccountId} ${AWS::Region} ${autodbrAthenaAccessKey} ${autodbrAthenaAccessKey.SecretAccessKey}"
               - ""
 
