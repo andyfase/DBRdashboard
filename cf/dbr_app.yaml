@@ -36,7 +36,7 @@ Parameters:
 
   GitURL:
     Type: String
-    Default: "https://github.com/andyfase/awsDBRanalysis.git"
+    Default: "https://github.com/andyfase/DBRdashboard.git"
     Description: "URL of the git repo that will be checked out and used when configuring the EC2 instance, use your cloned repo."
 
 Mappings:
