@@ -4,7 +4,7 @@
 DBRdashboard is an automated AWS detailed billing record analyzer. You can use it to produce dashboards on your AWS spend which are updated as frequently as AWS updates the DBR files themselves (multiple times per day).
 
 
-![DBRdashboard Screenshot](https://s3-us-west-2.amazonaws.com/andy-gen/dbr_dashboard.png)
+![DBRdashboard Screenshot](https://raw.githubusercontent.com/andyfase/awsDBRanalysis/master/dbr_dashboard.png)
 
 DBRdashboard queries the detailed billing record using AWS Athena. The queries and metrics that it produces are completly customizable to your own needs and requirements.
 
