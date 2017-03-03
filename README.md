@@ -162,16 +162,18 @@ Then a custom metric (named using the `cwName` parameter) will be sent to Cloudw
 
 Every row returned will send a metric using `put-metric-data` 
 
-Note. Athena uses Presto under-the-hood. Hence all Presto SQL functions are available for you to utilize. These can be found here.
+Note. Athena uses Presto under-the-hood. Hence all Presto SQL functions are available for you to utilize. These can be found [here](https://prestodb.io/docs/current/functions.html).
 
 ### Limitations
 
-
+* Only RI's under the "running" account are fetched and used to generate % RI utilization. If RI's exist under linked accounts they are not currently included and will cause incorrect results. Temporary work around for this is to move all RI's into the payer account if possible.
 
 ### Things left to do
 
-* Add Cloudwatch Logs support so that the code logs into cloudwatch
-* TBD ... 
+1. Add Cloudwatch Logs support so that the code logs into cloudwatch
+1. Add configuration to fetch RI data from multiple linked accounts. This will require additional permissions across all accounts to be able to make the API call.
+1. Document process for multi-dimension metrics (code supports it, just need to document)
+1. Modify code to not store user key/secret in ASG user-data and potentially use KMS instead. Hopefully support for Athena to use IAM roles will make this un-nessesary
 
 
 
