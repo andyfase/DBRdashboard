@@ -5,21 +5,21 @@ DBRdashboard is an automated AWS detailed billing record analyzer. You can use i
 
 ![DBRdashboard Screenshot](https://raw.githubusercontent.com/andyfase/awsDBRanalysis/master/dbr_dashboard.png)
 
-DBRdashboard queries the detailed billing record using AWS Athena. The queries and metrics that it produces are completly customizable to your own needs and requirements.
+DBRdashboard queries the detailed billing record using AWS Athena. The queries and metrics that it produces are completely customizable to your own needs and requirements.
 
 Currently the system relies on Cloudwatch to produce the dashboards (dashboard setup is a manual setup step). With small code modifications any metrics / dashboard system could be utilized.
 
-In addition, the system also maintains a set of AWS athena tables for you - to query your detailed billing record as you wish. A table per month is created and kept upto date as new billing data is added to the underlying DBR CSV file.
+In addition, the system also maintains a set of AWS Athena tables for you - to query your detailed billing record as you wish. A table per month is created and kept upto date as new billing data is added to the underlying DBR CSV file.
 
 ## How does this work?
 
 AWS publishes [detail billing reports](http://docs.aws.amazon.com/awsaccountbilling/latest/aboutv2/billing-reports.html#other-reports) periodically during the day. These reports contain very detailed line-by-line billing details for every AWS charge.
 
-DBRdashboard periodically spins up a EC2 instance that checks and converts these CSV based reports into [parquet format](https://parquet.apache.org/) files (for performance purposes) and re-uploads these converted files to S3. It then utilizes AWS Athena and standard SQL to create database tables and query specific billing metrics within them. The results of the queries are then  reported to AWS Cloudwatch as custom metrics.
+DBRdashboard periodically spins up a EC2 instance that checks and converts these CSV based reports into [parquet format](https://parquet.apache.org/) files (for performance purposes) and re-uploads these converted files to S3. It then utilizes AWS Athena and standard SQL to create database tables and query specific billing metrics within them. The results of the queries are then reported to AWS Cloudwatch as custom metrics.
 
 Once the metrics are in Cloudwatch, it is then very easy to produce graphs and create a billing dashboard customized to your exact requirements.
 
-In addition to querying the detailed billing report. DBRdashboard also queries any [reserved instances](https://aws.amazon.com/ec2/pricing/reserved-instances/) on the account and then corolates them against actual usage to generate utilization metrics. Overall utilization and per instance type under-utilization metrics are available. 
+In addition to querying the detailed billing report. DBRdashboard also queries any [reserved instances](https://aws.amazon.com/ec2/pricing/reserved-instances/) on the account and then correlates them against actual usage to generate utilization metrics. Overall utilization and per instance type under-utilization metrics are available. 
 
 ## Setup
 
@@ -33,9 +33,9 @@ If you have not already, turn on detailed billing records in your AWS account, c
 
 Fork this GIT repo. 
 
-The EC2 instance itself will bootstrap itself by cloneing a configurable GIT repo and then run scripts and custom binaries to generate and upload the custom metrics. This custom binary utilizes a configuration file which will need to be edited to enable/disable certain functionality and customize the metrics and queries that are run.
+The EC2 instance itself will bootstrap itself by cloning a configurable GIT repo and then run scripts and custom binaries to generate and upload the custom metrics. This custom binary utilizes a configuration file which will need to be edited to enable/disable certain functionality and customize the metrics and queries that are run.
 
-Therefore forking this repo allow you to commit configuration modifications which will automatically come into affect the next time the EC2 instance spins up.
+Therefore, forking this repo allow you to commit configuration modifications which will automatically come into effect the next time the EC2 instance spins up.
 
 ### Step 3
 
@@ -43,13 +43,13 @@ Using cloudformation bring up both stacks that are within the `cf` directory in 
 
 `dbr_network.yaml` is a CF template that will setup the VPC and general networking required. It is recomended to use a small CIDR block, as DBRdownload will only ever spin-up a single EC2 instance.
 
-`dbr_app.yaml` is a CF template that sets up the required IAM role, Athena user as well as a auto-scale group with a configured time-based scale up policy. It is recomended to configure the schedule paramter to ~ 4-6 hours, as this is roughly how often the original DBR CSV file is updated by AWS.
+`dbr_app.yaml` is a CF template that sets up the required IAM role, Athena user as well as a auto-scale group with a configured time-based scale up policy. It is recommended to configure the schedule parameter to ~ 4-6 hours, as this is roughly how often the original DBR CSV file is updated by AWS.
 
 Ensure you specify the GIT clone URL for your own repo. This will allow you to push configuration (or code) changes which will then be automatically picked up for the next time the EC2 instance spins up.
 
 ### Step 4
 
-Once this is configured you will need to wait for the first auto-scale spin-up to occur. If your impatient you could also manually set the `desired` capacity of the ASG to `1` so that a instance automatically spins up. Its safe to leave this up and running as it will be shutdown automatically by the automatic schedule before the end of the hour.
+Once this is configured you will need to wait for the first auto-scale spin-up to occur. To speed this up, you could also manually set the `desired` capacity of the ASG to `1` so that an instance automatically spins up. Its safe to leave this up and running as it will be shutdown automatically by the automatic schedule before the end of the hour.
 
 Once the instance has spun up it will bootstrap itself and run the code to generate the custom metrics. These should start to appear in Cloudwatch, typically these appear within 15 minutes of the instance coming up.
 
@@ -133,7 +133,7 @@ Metric Attribute  |  Description
 
 Each metric that you wish to display on the dashboard is obtained by querying the DBR Athena table. Each row that is returned is considered a new metric value. The `date` column is used as the time-series "divider" and is converted to a timestamp which is sent for this row.
 
-Default useful metrics are pre-configured within the original configuration file. These can be disabled if required or even completly removed. New metrics can be added as described above. 
+Default useful metrics are pre-configured within the original configuration file. These can be disabled if required or even completely removed. New metrics can be added as described above. 
 
 **Effectively if you can write SQL that fetches the data you need it can be turned into a metric and graphed on cloudwatch, no custom-coding required.**
  
@@ -172,7 +172,7 @@ Note. Athena uses Presto under-the-hood. Hence all Presto SQL functions are avai
 1. Add Cloudwatch Logs support so that the code logs into cloudwatch
 1. Add configuration to fetch RI data from multiple linked accounts. This will require additional permissions across all accounts to be able to make the API call.
 1. Document process for multi-dimension metrics (code supports it, just need to document)
-1. Modify code to not store user key/secret in ASG user-data and potentially use KMS instead. Hopefully support for Athena to use IAM roles will make this un-nessesary
+1. Modify code to not store user key/secret in ASG user-data and potentially use KMS instead. Hopefully support for Athena to use IAM roles will make this un-necessary
 
 
 
