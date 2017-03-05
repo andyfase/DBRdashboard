@@ -118,7 +118,7 @@ Option Name      | Description                                          | Defaul
 
 Each DBR metric is held within a `TOML` array in the configuration file. This array is iterated over to query Athena and then send the results as metrics to Cloudwatch.
 
-To add new metrics simply copy-and-paste an existing `[[metric]]`` entry and then modify the various attributes, which are
+To add new metrics simply copy-and-paste an existing `[[metric]]` entry and then modify the various attributes, which are
 
 Metric Attribute  |  Description
 ----------------- | ------------
