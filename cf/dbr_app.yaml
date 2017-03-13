@@ -1,10 +1,13 @@
 AWSTemplateFormatVersion: "2010-09-09"
 
-Description: Stack for ASG with timed scale-up / scale-down policy for DBR automatic processing
+Description: DBR Dashboard app stack including ASG with timed scale-up / scale-down policy.
 
 Parameters:
   ResourcePrefix:
     Type: String
+    Description: A description to identify resources. Use an identical value across stacks (e.g. "dbr-dashboard")
+    Default: dbr-dashboard
+    MinLength: 2
 
   KeypairName:
     Type: AWS::EC2::KeyPair::KeyName
@@ -12,6 +15,7 @@ Parameters:
   DBRBucket:
     Type: String
     Description: S3 bucket configured for Detailed Billing Records
+    MinLength: 2
 
   InstanceType:
     Type: String
@@ -27,16 +31,19 @@ Parameters:
   SpotPrice:
     Type: Number
     Default: 0.05
+    MinValue: 0.01
     Description: The Maximum price for the instance you want to pay (Note you will be charged based on the current price)
 
   Schedule:
     Type: Number
     Default: 4
+    MinValue: 1
     Description: Time gap (in hours) between DBR automatic processing (the lower, the more frequent and costly)
 
   GitURL:
     Type: String
     Default: "https://github.com/andyfase/DBRdashboard.git"
+    MinLength: 2
     Description: "URL of the git repo that will be checked out and used when configuring the EC2 instance, use your cloned repo."
 
 Mappings:

@@ -1,32 +1,45 @@
 AWSTemplateFormatVersion: "2010-09-09"
 
-Description: A 'standard_vpc' stack
+Description: Network stack for DBR Dashboard
 
 Parameters:
   ResourcePrefix:
     Type: String
-    Description: A description to identify resources (e.g. "my-perf-test")
+    Description: A description to identify resources. Use an identical value across stacks (e.g. "dbr-dashboard")
+    Default: dbr-dashboard
+    MinLength: 2
 
   VpcCidr:
     Type: String
-    Description: A network CIDR e.g. "10.0.0.0/16"
+    Description: A network CIDR e.g. "10.0.0.0/25"
+    AllowedPattern: ^\d+\.\d+\.\d+\.\d+\/\d+$
+    Default: 10.0.0.0/25
 
   PublicSubnetAZ0Cidr:
     Type: String
-    Description: A subnet CIDR e.g. "10.0.0.0/24"
+    Description: A subnet CIDR e.g. "10.0.0.0/27"
+    AllowedPattern: ^\d+\.\d+\.\d+\.\d+\/\d+$
+    Default: 10.0.0.0/27
 
   PrivateSubnetAZ0Cidr:
     Type: String
-    Description: A subnet CIDR e.g. "10.0.10.0/24"
+    Description: A subnet CIDR e.g. "10.0.0.32/27"
+    AllowedPattern: ^\d+\.\d+\.\d+\.\d+\/\d+$
+    Default: 10.0.0.32/27
+
 
   PublicSubnetAZ1Cidr:
     Type: String
-    Description: A subnet CIDR e.g. "10.0.1.0/24"
+    Description: A subnet CIDR e.g. "10.0.0.64/27"
+    AllowedPattern: ^\d+\.\d+\.\d+\.\d+\/\d+$
+    Default: 10.0.0.64/27
+
 
   PrivateSubnetAZ1Cidr:
     Type: String
-    Description: A subnet CIDR e.g. "10.0.11.0/24"
-
+    Description: A subnet CIDR e.g. "10.0.0.96/27
+    AllowedPattern: ^\d+\.\d+\.\d+\.\d+\/\d+$
+    Default: 10.0.0.96/27
 
 Resources:
   Vpc:
