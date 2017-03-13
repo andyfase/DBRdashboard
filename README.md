@@ -23,7 +23,9 @@ In addition to querying the detailed billing report. DBRdashboard also queries a
 
 ## Setup
 
-Setup of DBR dashboard should take ~15 minutes. 
+Setup of DBR dashboard should take ~15 minutes if detailed billing records are already enabled. 
+
+**NOTE: DBR Dashboard can only be spun-up in us-east-1 or us-west-2 AWS regions as of now.**
 
 ### Step 1
 
@@ -40,6 +42,8 @@ Therefore, forking this repo allow you to commit configuration modifications whi
 ### Step 3
 
 Using cloudformation bring up both stacks that are within the `cf` directory in your newly forked repo.
+
+The network stack create's exports which are then referenced by the app stack. To be able to keep multiple stacks operational a `ResourcePrefix` is used which is pre-pended to the exports. The `ResourcePrefix` can be any text string **but must be identical across both stacks**.
 
 `dbr_network.yaml` is a CF template that will setup the VPC and general networking required. It is recomended to use a small CIDR block, as DBRdownload will only ever spin-up a single EC2 instance.
 
