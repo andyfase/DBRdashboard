@@ -229,6 +229,11 @@ func sendMetric(svc *cloudwatch.CloudWatch, data AthenaResponse, cwNameSpace str
 	input.Namespace = aws.String(cwNameSpace)
 	i := 0
 	for row := range data.Rows {
+    // skip metric if dimension or value is empty
+    if len(data.Rows[row]["dimension"]) < 1 || len(data.Rows[row]["value"]) < 1 {
+      continue
+    }
+
 		// send Metric Data as we have reached 20 records, and clear MetricData Array
 		if i >= 20 {
 			_, err := svc.PutMetricData(&input)
