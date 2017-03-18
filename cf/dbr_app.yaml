@@ -46,6 +46,12 @@ Parameters:
     MinLength: 2
     Description: "URL of the git repo that will be checked out and used when configuring the EC2 instance, use your cloned repo."
 
+  GitBranch:
+    Type: String
+    Default: "master"
+    MinLength: 2
+    Description: "Branch of your GIT repo that the EC2 instance will checkout. Change this from 'master' to test out seperate code branches before they are merged to master"
+
 Mappings:
   RegionMap:
     us-east-1:
@@ -236,6 +242,7 @@ Resources:
               - "yum install -y git"
               - "Fn::Sub": "git clone ${GitURL}"
               - "cd DBRdashboard"
+              - "Fn::Sub": "git checkout ${GitBranch}"
               - "Fn::Sub": "chmod 755 ./run.sh && ./run.sh ${DBRBucket} ${AWS::AccountId} ${AWS::Region} ${autodbrAthenaAccessKey} ${autodbrAthenaAccessKey.SecretAccessKey}"
               - ""
 
