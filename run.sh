@@ -7,6 +7,7 @@
 # $3 - region
 # $4 - user-key
 # $5 - user-secret
+# $6 - Optional Upload bucket
 
 #
 # Helper function that runs whatever command is passed to it and exits if command does not return zero status
@@ -38,6 +39,13 @@ export PATH=/opt/drill/bin:$PATH
 # Start Athena Proxy
 PORT=10000 java -cp ./athenaproxy/athenaproxy.jar com.getredash.awsathena_proxy.API . &
 
+# Check if optional upload bucket parameter has been provided - if it has use it
+if [ -z "${6}" ]; then
+  UPLOAD_BUCKET=$1
+else
+  UPLOAD_BUCKET=$6
+fi
+
 DBRFILES3="s3://${1}/${2}-aws-billing-detailed-line-items-with-resources-and-tags-$(date +%Y-%m).csv.zip"
 DBRFILEFS="${2}-aws-billing-detailed-line-items-with-resources-and-tags-$(date +%Y-%m).csv.zip"
 DBRFILEFS_CSV="${2}-aws-billing-detailed-line-items-with-resources-and-tags-$(date +%Y-%m).csv"
@@ -46,7 +54,6 @@ DBRFILEFS_PARQUET="${2}-aws-billing-detailed-line-items-with-resources-and-tags-
 ## Fetch current DBR file and unzip
 run aws s3 cp $DBRFILES3 /media/ephemeral0/ --quiet
 run unzip -qq /media/ephemeral0/$DBRFILEFS -d /media/ephemeral0/
-
 
 ## Check if DBR file contains Blended / Unblended Rates
 DBR_BLENDED=`head -1 /media/ephemeral0/$DBRFILEFS_CSV | grep UnBlended | wc -l`
@@ -61,9 +68,9 @@ else
 fi
 
 ## Upload Parquet DBR back to bucket
-run aws s3 sync /media/ephemeral0/$DBRFILEFS_PARQUET s3://${1}/dbr-parquet/${2}-$(date +%Y%m) --quiet
+run aws s3 sync /media/ephemeral0/$DBRFILEFS_PARQUET s3://${UPLOAD_BUCKET}/dbr-parquet/${2}-$(date +%Y%m) --quiet
 
 ## run go program to Query Athena and send metrics to cloudwatch
-./bin/analyzeDBR -config ./analyzeDBR.config -key $4 -secret $5 -region $3 -account $2 -bucket $1 -date $(date +%Y%m) -blended=$DBR_BLENDED
+./bin/analyzeDBR -config ./analyzeDBR.config -key $4 -secret $5 -region $3 -account $2 -bucket $UPLOAD_BUCKET -date $(date +%Y%m) -blended=$DBR_BLENDED
 
 ## done

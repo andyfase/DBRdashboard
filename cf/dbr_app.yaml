@@ -17,6 +17,10 @@ Parameters:
     Description: S3 bucket configured for Detailed Billing Records
     MinLength: 2
 
+  DBRUploadBucket:
+    Type: String
+    Description: OPTIONAL S3 bucket for storing converted DBR files (only use this is your DBR bucket is invalid for use with Athena i.e. contains a underscore)
+
   InstanceType:
     Type: String
     Description: Instance Type to run (for cost savings limited to M1, M3 or C3 instances - instance store backed, with Moderate networking)
@@ -59,6 +63,11 @@ Mappings:
     us-west-2:
       "ami": "ami-51c56331"
 
+Conditions:
+  NoUploadBucket:
+    "Fn::Equals":
+      - { Ref: DBRUploadBucket }
+      - ""
 
 Resources:
   autodbrAthena:
@@ -108,7 +117,10 @@ Resources:
                     - ""
                     -
                       - "arn:aws:s3:::"
-                      - { Ref: DBRBucket }
+                      - "Fn::If":
+                        - NoUploadBucket
+                        - { Ref: DBRBucket }
+                        - { Ref: DBRUploadBucket }
                       - "*"
   autodbrAthenaAccessKey:
     Type: AWS::IAM::AccessKey
@@ -152,6 +164,14 @@ Resources:
                     -
                       - "arn:aws:s3:::"
                       - { Ref: DBRBucket }
+                  - "Fn::If":
+                    - NoUploadBucket
+                    - { Ref: "AWS::NoValue" }
+                    - "Fn::Join":
+                      - ""
+                      -
+                        - "arn:aws:s3:::"
+                        - { Ref: DBRUploadBucket }
               - Effect: Allow
                 Action:
                   - s3:GetObject
@@ -162,14 +182,20 @@ Resources:
                     - ""
                     -
                       - "arn:aws:s3:::"
-                      - { Ref: DBRBucket }
+                      - "Fn::If":
+                        - NoUploadBucket
+                        - { Ref: DBRBucket }
+                        - { Ref: DBRUploadBucket }
                       - "/dbr-parquet"
                       - "/*"
                   - "Fn::Join":
                     - ""
                     -
                       - "arn:aws:s3:::"
-                      - { Ref: DBRBucket }
+                      - "Fn::If":
+                        - NoUploadBucket
+                        - { Ref: DBRBucket }
+                        - { Ref: DBRUploadBucket }
                       - "/dbr-parquet"
               - Effect: Allow
                 Action:
@@ -243,7 +269,7 @@ Resources:
               - "Fn::Sub": "git clone ${GitURL}"
               - "cd DBRdashboard"
               - "Fn::Sub": "git checkout ${GitBranch}"
-              - "Fn::Sub": "chmod 755 ./run.sh && ./run.sh ${DBRBucket} ${AWS::AccountId} ${AWS::Region} ${autodbrAthenaAccessKey} ${autodbrAthenaAccessKey.SecretAccessKey}"
+              - "Fn::Sub": "chmod 755 ./run.sh && ./run.sh ${DBRBucket} ${AWS::AccountId} ${AWS::Region} ${autodbrAthenaAccessKey} ${autodbrAthenaAccessKey.SecretAccessKey} ${DBRUploadBucket}"
               - ""
 
   Asg:
