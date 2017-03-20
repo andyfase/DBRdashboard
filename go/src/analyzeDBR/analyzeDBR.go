@@ -277,9 +277,12 @@ func sendMetric(svc *cloudwatch.CloudWatch, data AthenaResponse, cwNameSpace str
   i++
   }
 
-  _, err := svc.PutMetricData(&input)
-  if err != nil {
-      return err
+  // if we still have data to send - send it
+  if len(input.MetricData) > 0 {
+    _, err := svc.PutMetricData(&input)
+    if err != nil {
+        return err
+    }
   }
 
   return nil
