@@ -46,10 +46,10 @@ else
   UPLOAD_BUCKET=$6
 fi
 
-DBRFILES3="s3://${1}/${2}-aws-billing-detailed-line-items-with-resources-and-tags-$(date +%Y-%m).csv.zip"
-DBRFILEFS="${2}-aws-billing-detailed-line-items-with-resources-and-tags-$(date +%Y-%m).csv.zip"
-DBRFILEFS_CSV="${2}-aws-billing-detailed-line-items-with-resources-and-tags-$(date +%Y-%m).csv"
-DBRFILEFS_PARQUET="${2}-aws-billing-detailed-line-items-with-resources-and-tags-$(date +%Y-%m).parquet"
+DBRFILES3="s3://${1}/${2}-aws-billing-detailed-line-items-$(date +%Y-%m).csv.zip"
+DBRFILEFS="${2}-aws-billing-detailed-line-items-$(date +%Y-%m).csv.zip"
+DBRFILEFS_CSV="${2}-aws-billing-detailed-line-items-$(date +%Y-%m).csv"
+DBRFILEFS_PARQUET="${2}-aws-billing-detailed-line-items-$(date +%Y-%m).parquet"
 
 ## Fetch current DBR file and unzip
 run aws s3 cp $DBRFILES3 /media/ephemeral0/ --quiet
