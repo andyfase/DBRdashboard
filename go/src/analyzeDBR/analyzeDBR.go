@@ -81,6 +81,7 @@ End of configuraton structs
 */
 
 var defaultConfigPath = "./analyzeDBR.config"
+var maxConcurrentQueries = 5
 
 /*
 Function reads in and validates command line parameters
@@ -160,14 +161,12 @@ func substituteParams(sql string, params map[string]string) string {
 Function takes SQL to send to Athena converts into JSON to send to Athena HTTP proxy and then sends it.
 Then recieves responses in JSON which is converted back into a struct and returned
 */
-func sendQuery(sess *session.Session, db string, sql string, account string, region string) (AthenaResponse, error) {
+func sendQuery(svc *athena.Athena, db string, sql string, account string, region string) (AthenaResponse, error) {
 
 	var results AthenaResponse
 
-	svc := athena.New(sess)
 	var s athena.StartQueryExecutionInput
 	s.SetQueryString(sql)
-	fmt.Println(sql)
 
 	var q athena.QueryExecutionContext
 	q.SetDatabase(db)
@@ -181,9 +180,6 @@ func sendQuery(sess *session.Session, db string, sql string, account string, reg
 	if err != nil {
 		return results, err
 	}
-
-	fmt.Println("StartQueryExecution result:")
-	fmt.Println(result.GoString())
 
 	var qri athena.GetQueryExecutionInput
 	qri.SetQueryExecutionId(*result.QueryExecutionId)
@@ -200,7 +196,6 @@ func sendQuery(sess *session.Session, db string, sql string, account string, reg
 		if *qrop.QueryExecution.Status.State != "RUNNING" {
 			break
 		}
-		fmt.Println("waiting.")
 		time.Sleep(duration)
 	}
 
@@ -216,7 +211,8 @@ func sendQuery(sess *session.Session, db string, sql string, account string, reg
 		return results, err
 	}
 
-	fmt.Printf("%+v", op)
+	// fmt.Printf("%+v", op)
+	fmt.Println(len(op.ResultSet.Rows))
 
 	return results, nil
 }
@@ -428,7 +424,7 @@ func riUtilizationHour(svc *cloudwatch.CloudWatch, date string, used map[string]
 Main RI function. Gest RI and usage data (from Athena).
 Then loops through every hour and calls riUtilizationHour to process each hours worth of data
 */
-func riUtilization(sess *session.Session, conf Config, key string, secret string, region string, account string, date string) error {
+func riUtilization(sess *session.Session, svcAthena *athena.Athena, conf Config, key string, secret string, region string, account string, date string) error {
 
 	svc := ec2.New(sess)
 
@@ -479,7 +475,7 @@ func riUtilization(sess *session.Session, conf Config, key string, secret string
 	}
 
 	// Fetch RI hours used
-	data, err := sendQuery(sess, conf.Athena.DbName, substituteParams(conf.RI.Sql, map[string]string{"**DATE**": date}), region, account)
+	data, err := sendQuery(svcAthena, conf.Athena.DbName, substituteParams(conf.RI.Sql, map[string]string{"**DATE**": date}), region, account)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -535,39 +531,73 @@ func main() {
 		log.Fatal(err)
 	}
 
+	// initialize Athena class
+	svcAthena := athena.New(sess)
+	svcCW := cloudwatch.New(sess)
+
 	// make sure Athena DB exists - dont care about results
-	if _, err := sendQuery(sess, "default", conf.Athena.DbSQL, region, account); err != nil {
+	if _, err := sendQuery(svcAthena, "default", conf.Athena.DbSQL, region, account); err != nil {
 		log.Fatal(err)
 	}
 
 	// make sure current Athena table exists - dont care about results
-	if _, err := sendQuery(sess, conf.Athena.DbName, substituteParams(conf.Athena.TableSQL, map[string]string{"**BUCKET**": bucket, "**DATE**": date, "**ACCOUNT**": account}), region, account); err != nil {
+	if _, err := sendQuery(svcAthena, conf.Athena.DbName, substituteParams(conf.Athena.TableSQL, map[string]string{"**BUCKET**": bucket, "**DATE**": date, "**ACCOUNT**": account}), region, account); err != nil {
 		log.Fatal(err)
 	}
 
 	// If RI analysis enabled - do it
 	if conf.RI.Enabled {
-		if err := riUtilization(sess, conf, key, secret, region, account, date); err != nil {
+		if err := riUtilization(sess, svcAthena, conf, key, secret, region, account, date); err != nil {
 			log.Fatal(err)
 		}
 	}
 
-	// Create new cloudwatch client.
-	svc := cloudwatch.New(sess)
+	// struct for a query job
+	type job struct {
+		svc     *athena.Athena
+		db      string
+		account string
+		region  string
+		metric  Metric
+	}
 
-	// iterate through metrics - perform query then send data to cloudwatch
-	for metric := range conf.Metrics {
-		if !conf.Metrics[metric].Enabled {
-			continue
-		}
-		results, err := sendQuery(sess, conf.Athena.DbName, substituteParams(conf.Metrics[metric].SQL, map[string]string{"**DATE**": date, "**COST**": costColumn}), region, account)
-		if err != nil {
-			log.Fatal(err)
-		}
-		if conf.Metrics[metric].Type == "dimension-per-row" {
-			if err := sendMetric(svc, results, conf.General.Namespace, conf.Metrics[metric].CwName, conf.Metrics[metric].CwType, conf.Metrics[metric].CwDimension); err != nil {
-				log.Fatal(err)
+	// channels for parallel execution
+	jobs := make(chan job)
+	done := make(chan bool)
+
+	// create upto maxConcurrentQueries workers to process metric jobs
+	for w := 0; w < maxConcurrentQueries; w++ {
+		go func() {
+			for {
+				j, ok := <-jobs
+				if !ok {
+					done <- true
+					return
+				}
+				results, err := sendQuery(j.svc, j.db, substituteParams(j.metric.SQL, map[string]string{"**DATE**": date, "**COST**": costColumn}), j.region, j.account)
+				if err != nil {
+					log.Println(err)
+					continue
+				}
+				continue // debugging for now
+
+				if err := sendMetric(svcCW, results, conf.General.Namespace, j.metric.CwName, j.metric.CwType, j.metric.CwDimension); err != nil {
+					log.Println(err)
+				}
 			}
+		}()
+	}
+
+	// pass every enabled metric into channel for processing
+	for metric := range conf.Metrics {
+		if conf.Metrics[metric].Enabled {
+			jobs <- job{svcAthena, conf.Athena.DbName, account, region, conf.Metrics[metric]}
 		}
+	}
+	close(jobs)
+
+	// wait for jobs to complete
+	for w := 0; w < maxConcurrentQueries; w++ {
+		<-done
 	}
 }
