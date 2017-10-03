@@ -36,9 +36,6 @@ sudo yum install -y unzip
 # Add Drill to PATH
 export PATH=/opt/drill/bin:$PATH
 
-# Start Athena Proxy
-PORT=10000 java -cp ./athenaproxy/athenaproxy.jar com.getredash.awsathena_proxy.API . &
-
 # Check if optional upload bucket parameter has been provided - if it has use it
 if [ -z "${6}" ]; then
   UPLOAD_BUCKET=$1
